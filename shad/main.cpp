@@ -5,25 +5,28 @@
 #include <random>
 
 class GeneticFunctionHelper: public genetic::GeneticHelper<functions::Function> {
+private:
+    const functions::Function& real;
+    double left, right, dx;
 public:
-    GeneticFunctionHelper() {
+    GeneticFunctionHelper(const functions::Function& real, double left, double right, double dx): real(real), left(left), right(right), dx(dx) {
         
     }
     
     virtual std::unique_ptr<functions::Function> newInstance(genetic::Random& random) {
-        return std::make_unique<functions::NoArgFunction>(10);
+        return std::make_unique<functions::ConstFunction>(10);
     }
     
     virtual std::unique_ptr<functions::Function> mutate(const functions::Function& instance, genetic::Random& random) {
-        return std::make_unique<functions::NoArgFunction>(10);
+        return std::make_unique<functions::ConstFunction>(10);
     }
     
     virtual std::unique_ptr<functions::Function> cross(const functions::Function& left, const functions::Function& right, genetic::Random& random) {
-        return std::make_unique<functions::NoArgFunction>(10);
+        return std::make_unique<functions::ConstFunction>(10);
     }
     
     virtual double score(const functions::Function& instance) {
-        return 0;
+        return functions::product(real, instance, left, right, dx, "x", functions::EmptyArgumentProvider());
     }
     
     virtual ~GeneticFunctionHelper() {}
@@ -53,7 +56,7 @@ public:
 
 
 int main() {
-    GeneticFunctionHelper helper;
+    GeneticFunctionHelper helper(functions::VariableFunction("x"), 0, 1, 1E-1);
     Random random(42);
     
     genetic::GeneticAlgorithm<functions::Function> genetic(50, helper, random);

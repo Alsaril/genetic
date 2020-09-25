@@ -5,11 +5,11 @@
 
 namespace functions {
 
-bool OneVariableProvider::has(const std::string& name) {
+bool OneVariableProvider::has(const std::string& name) const {
     return name == this->name;
 }
 
-double OneVariableProvider::get(const std::string& name) {
+double OneVariableProvider::get(const std::string& name) const {
     assert(has(name));
     return value;
 }
@@ -18,32 +18,32 @@ void OneVariableProvider::set(double value) {
     this->value = value;
 }
 
-bool FallbackProvider::has(const std::string& name) {
-    return std::any_of(providers.begin(), providers.end(), [&name](auto& p){ return p.get().has(name); });
+bool FallbackProvider::has(const std::string& name) const {
+    return std::any_of(providers.begin(), providers.end(), [&name](auto& p){ return p->has(name); });
 }
 
-double FallbackProvider::get(const std::string& name) {
+double FallbackProvider::get(const std::string& name) const {
     for (auto& provider: providers) {
-        if (provider.get().has(name)) {
-            return provider.get().get(name);
+        if (provider->has(name)) {
+            return provider->get(name);
         }
     }
     throw 1;
 }
 
-double NoArgFunction::eval(ArgumentProvider& provider) {
+double ConstFunction::eval(const ArgumentProvider& provider) const {
     return value;
 }
 
-double OneArgFunction::eval(ArgumentProvider& provider) {
+double OneArgFunction::eval(const ArgumentProvider& provider) const {
     return fun(arg->eval(provider));
 }
 
-double VariableFunction::eval(ArgumentProvider& provider) {
+double VariableFunction::eval(const ArgumentProvider& provider) const {
     return provider.get(name);
 }
 
-double TwoArgFunction::eval(ArgumentProvider& provider) {
+double TwoArgFunction::eval(const ArgumentProvider& provider) const {
     return fun(left->eval(provider), right->eval(provider));
 }
 
@@ -65,7 +65,7 @@ NumericFunction::NumericFunction(double left,
     assert(values.size() == (right - left) / dx + 1);
 }
 
-double NumericFunction::eval(ArgumentProvider& provider) {
+double NumericFunction::eval(const ArgumentProvider& provider) const {
     double x = provider.get(variable);
     if (x < left) {
         return leftValue;
@@ -76,16 +76,16 @@ double NumericFunction::eval(ArgumentProvider& provider) {
     return values[static_cast<int>((x - left) / dx)];
 }
 
-double BindedFunction::eval(ArgumentProvider& provider) {
-    FallbackProvider fallbackProvider({ defaultProvider, provider });
+double BindedFunction::eval(const ArgumentProvider& provider) const {
+    FallbackProvider fallbackProvider({ &defaultProvider, &provider });
     return original.eval(fallbackProvider);
 }
 
-std::unique_ptr<Function> bind(Function& f, ArgumentProvider& provider) {
+std::unique_ptr<Function> bind(const Function& f, const ArgumentProvider& provider) {
     return std::make_unique<BindedFunction>(f, provider);
 }
 
-std::unique_ptr<Function> integrate(Function& f, double left, double right, double dx, const std::string& variable, ArgumentProvider& provider) {
+std::unique_ptr<Function> integrate(const Function& f, double left, double right, double dx, const std::string& variable, const ArgumentProvider& provider) {
     std::vector<double> result;
     double sum = 0.0;
     result.reserve(static_cast<int>((right - left) / dx));
@@ -100,7 +100,7 @@ std::unique_ptr<Function> integrate(Function& f, double left, double right, doub
     return std::make_unique<NumericFunction>(left, 0.0, right, sum, dx, std::move(result), variable);
 }
 
-double product(Function& f1, Function& f2, double left, double right, double dx, const std::string& variable, ArgumentProvider& provider) {
+double product(const Function& f1, const Function& f2, double left, double right, double dx, const std::string& variable, const ArgumentProvider& provider) {
     std::unique_ptr<Function> b1 = bind(f1, provider);
     std::unique_ptr<Function> b2 = bind(f2, provider);
     OneVariableProvider oneVariableProvider(variable);
